@@ -50,7 +50,7 @@ Biu
 
 ```mermaid
 flowchart TD
-    A[Cliente] -->|Mensagem| B[Interface]
+    A[Cliente] -->|Mensagem| B["Streamlit (Interface VIsual)"]
     B --> C[LLM]
     C --> D[Base de Conhecimento]
     D --> C
