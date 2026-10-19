@@ -18,7 +18,9 @@ CAMINHO_PERFIL = DATA_DIR / "perfil_investidor.json"
 with open(CAMINHO_PERFIL, "r", encoding="utf-8") as arquivo:
     perfil = json.load(arquivo)
 
-perfil = json.load(open('src/perfil.json', 'r'))
+BASE_DIR: Path = Path(__file__).resolve().parent.parent
+perfil = json.load(open(BASE_DIR / "data" / "perfil_investidor.json", "r", encoding="utf-8"))
+
 transacoes = pd.read_csv('src/transacoes.csv', delimiter=';')
 historico = pd.read_csv('src/historico.csv', delimiter=';')
 produtos = pd.read_csv('src/produtos.csv', delimiter=';')
