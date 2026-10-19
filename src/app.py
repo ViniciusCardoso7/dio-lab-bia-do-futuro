@@ -10,17 +10,7 @@ import streamlit as st
 
 st.title("BIU — Assistente Financeiro") 
 
-BASE_DIR = Path(__file__).resolve().parent.parent   # raiz do projeto
-DATA_DIR = BASE_DIR / "data"
-
-CAMINHO_PERFIL = DATA_DIR / "perfil_investidor.json"
-
-with open(CAMINHO_PERFIL, "r", encoding="utf-8") as arquivo:
-    perfil = json.load(arquivo)
-
-BASE_DIR: Path = Path(__file__).resolve().parent.parent
-perfil = json.load(open(BASE_DIR / "data" / "perfil_investidor.json", "r", encoding="utf-8"))
-
+perfil = json.load(open('src/perfil.json', 'r', encoding='utf-8-sig'))
 transacoes = pd.read_csv('src/transacoes.csv', delimiter=';')
 historico = pd.read_csv('src/historico.csv', delimiter=';')
 produtos = pd.read_csv('src/produtos.csv', delimiter=';')
