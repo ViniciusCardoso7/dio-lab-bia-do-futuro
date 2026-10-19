@@ -4,10 +4,19 @@
 
 import pandas as pd 
 import json
+from pathlib import Path
 import requests
 import streamlit as st
 
 st.title("BIU — Assistente Financeiro") 
+
+BASE_DIR = Path(__file__).resolve().parent.parent   # raiz do projeto
+DATA_DIR = BASE_DIR / "data"
+
+CAMINHO_PERFIL = DATA_DIR / "perfil_investidor.json"
+
+with open(CAMINHO_PERFIL, "r", encoding="utf-8") as arquivo:
+    perfil = json.load(arquivo)
 
 perfil = json.load(open('src/perfil.json', 'r'))
 transacoes = pd.read_csv('src/transacoes.csv', delimiter=';')
