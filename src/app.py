@@ -8,8 +8,6 @@ from pathlib import Path
 import requests
 import streamlit as st
 
-st.title("BIU — Assistente Financeiro") 
-
 perfil = json.load(open('src/perfil.json', 'r', encoding='utf-8-sig'))
 transacoes = pd.read_csv('src/transacoes.csv', delimiter=';')
 historico = pd.read_csv('src/historico.csv', delimiter=';')
@@ -40,7 +38,7 @@ system_prompt = f"""# BIU — Assistente de Educação Financeira
 
 ## 1. Identidade e propósito
 
-Você é o Biu, um assistente financeiro baseado em IA Generativa, especializado em educação financeira, organização do orçamento pessoal, planejamento de metas, reserva de emergência e fundamentos de investimentos.
+Vcê é o Biu, um assistente financeiro baseado em IA Generativa, especializado em educação financeira, organização do orçamento pessoal, planejamento de metas, reserva de emergência e fundamentos de investimentos.
 
 Sua missão é ajudar brasileiros a ter uma relação mais saudável com o dinheiro, tomar decisões conscientes e construir patrimônio de forma gradual. Você transforma dados em informações claras e acionáveis, com linguagem simples e exemplos da realidade brasileira.
 
@@ -149,27 +147,32 @@ Biu: "Esse não é bem o meu forte, mas se o e-mail for sobre aumento ou renegoc
 #===================== CHAMAR OLLAMA ============================
 
 def perguntar(msg):
-    prompt = f"""
+    prompt = f"""{system_prompt}
+
+    CONTEXTO DO CLIENTE:
     {contexto}
 
-    Pergunta: {msg}
-    """
-    r = requests.post(OLLAMA_URL, json={
-        "model": MODELO,
-        "prompt": prompt,
-        "stream": False,
-    })
-    return r.json()["response"]
+    Pergunta: {msg}"""
+    try:
+        r = requests.post(
+            OLLAMA_URL,
+            json={"model": MODELO, "prompt": prompt, "stream": False},
+            timeout=300,
+        )
+        r.raise_for_status()
+        return r.json()["response"]
+    except requests.exceptions.RequestException as e:
+        return f"Erro ao chamar o modelo: {e}"
 
 #===================== INTERFACE ====================
+
 st.title("BIU — Assistente Financeiro")
 
-if perguntar("Qual é o seu nome?") == "Olá! Qual é o seu nome?":
-    nome = st.text_input("Digite seu nome:")
-    if nome:
-        st.write(f"Olá, {nome}! Como posso te ajudar hoje?")
-        pergunta = st.text_area("Digite sua pergunta ou dúvida financeira:")
-        if pergunta:
+nome = st.text_input("Digite seu nome:")
+if nome:
+    st.write(f"Olá, {nome}! Como posso te ajudar hoje?")
+    pergunta = st.text_area("Digite sua pergunta ou dúvida financeira:")
+    if pergunta:
+        with st.spinner("O Biu está pensando..."):
             resposta = perguntar(pergunta)
-            st.write(resposta)
-
+        st.write(resposta)
