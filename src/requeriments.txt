@@ -1,3 +1,4 @@
 streamlit
 llama3.2
 pandas
+requests
