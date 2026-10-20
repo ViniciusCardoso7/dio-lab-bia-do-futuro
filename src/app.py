@@ -16,8 +16,8 @@ historico = pd.read_csv('src/historico.csv', delimiter=';')
 produtos = pd.read_csv('src/produtos.csv', delimiter=';')
 
 #==================~CONFIGURAÇÃO========================
-OLLAMA_URL = "http://localhost:11434/api/tags"   
-MODELO ="gpt-oss:latest"
+OLLAMA_URL = "http://localhost:11434/api/generate"
+MODELO = "gpt-oss:latest"
 
 #================== MONTAR CONTEXTO ========================
 contexto = f"""
@@ -148,15 +148,18 @@ Biu: "Esse não é bem o meu forte, mas se o e-mail for sobre aumento ou renegoc
     """
 #===================== CHAMAR OLLAMA ============================
 
-def perguntar (msg):
-  prompt = f"""{system_prompt}
-
-    CONTEXTO DO CLIENTE:
+def perguntar(msg):
+    prompt = f"""
     {contexto}
 
-    Pergunta: {msg}"""
-  r = requests.post(OLLAMA_URL, json={"model": MODELO, "prompt": prompt, "stream": False})
-  return r.json()["response"]
+    Pergunta: {msg}
+    """
+    r = requests.post(OLLAMA_URL, json={
+        "model": MODELO,
+        "prompt": prompt,
+        "stream": False,
+    })
+    return r.json()["response"]
 
 #===================== INTERFACE ====================
 st.title("BIU — Assistente Financeiro")
