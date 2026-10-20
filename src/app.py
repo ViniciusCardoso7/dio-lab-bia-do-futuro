@@ -14,7 +14,7 @@ historico = pd.read_csv('src/historico.csv', delimiter=';')
 produtos = pd.read_csv('src/produtos.csv', delimiter=';')
 
 #==================~CONFIGURAÇÃO========================
-OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_URL = "http://localhost:11434"
 MODELO = "gpt-oss:latest"
 
 #================== MONTAR CONTEXTO ========================
