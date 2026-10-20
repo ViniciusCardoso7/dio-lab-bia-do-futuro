@@ -11,9 +11,9 @@ import streamlit as st
 st.title("BIU — Assistente Financeiro") 
 
 perfil = json.load(open('src/perfil.json', 'r', encoding='utf-8-sig'))
-transacoes = pd.read_csv('data/transacoes.csv', delimiter=';')
-historico = pd.read_csv('data/historico.csv', delimiter=';')
-produtos = pd.read_csv('data/produtos.csv', delimiter=';')
+transacoes = pd.read_csv('src/transacoes.csv', delimiter=';')
+historico = pd.read_csv('src/historico.csv', delimiter=';')
+produtos = pd.read_csv('src/produtos.csv', delimiter=';')
 
 #==================~CONFIGURAÇÃO========================
 OLLAMA_URL = "http://localhost:11434"
