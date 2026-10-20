@@ -15,7 +15,7 @@ produtos = pd.read_csv('src/produtos.csv', delimiter=';')
 
 #==================~CONFIGURAÇÃO========================
 OLLAMA_URL = "http://localhost:11434"
-MODELO = "gpt-oss:latest"
+MODELO = "llama3.2"
 
 #================== MONTAR CONTEXTO ========================
 contexto = f"""
