@@ -146,11 +146,14 @@ Biu: "Esse não é bem o meu forte, mas se o e-mail for sobre aumento ou renegoc
     """
 #===================== CHAMAR OLLAMA ============================
 
-def perguntar(msg):
+def perguntar(msg,historico=""):
     prompt = f"""{system_prompt}
 
     CONTEXTO DO CLIENTE:
     {contexto}
+
+    CONVERSA ATÉ AGORA:
+    {historico}
 
     Pergunta: {msg}"""
     try:
@@ -164,15 +167,50 @@ def perguntar(msg):
     except requests.exceptions.RequestException as e:
         return f"Erro ao chamar o modelo: {e}"
 
-#===================== INTERFACE ====================
+#===================== INTERFACE (CHAT) ====================
 
 st.title("BIU — Assistente Financeiro")
 
-nome = st.text_input("Digite seu nome:")
-if nome:
-    st.write(f"Olá, {nome}! Como posso te ajudar hoje?")
-    pergunta = st.text_area("Digite sua pergunta ou dúvida financeira:")
-    if pergunta:
+with st.sidebar:
+    nome = st.text_input("Seu nome:")
+    if st.button("Limpar conversa"):
+        st.session_state.mensagens = []
+        st.rerun()
+
+if "mensagens" not in st.session_state:
+    st.session_state.mensagens = []
+
+if not nome:
+    st.info("👈 Digite seu nome na barra lateral para começar.")
+    st.stop()
+
+# Mensagem de boas-vindas (só na primeira vez)
+if not st.session_state.mensagens:
+    st.session_state.mensagens.append({
+        "role": "assistant",
+        "content": f"Olá, {nome}! Sou o Biu. Como posso te ajudar com suas finanças hoje?",
+    })
+
+# Mostra o histórico
+for m in st.session_state.mensagens:
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"])
+
+# Campo de envio
+if pergunta := st.chat_input("Digite sua pergunta financeira..."):
+    st.session_state.mensagens.append({"role": "user", "content": pergunta})
+    with st.chat_message("user"):
+        st.markdown(pergunta)
+
+    with st.chat_message("assistant"):
         with st.spinner("O Biu está pensando..."):
             resposta = perguntar(pergunta)
-        st.write(resposta)
+        st.markdown(resposta)
+
+    st.session_state.mensagens.append({"role": "assistant", "content": resposta})
+
+historico = "\n".join(
+    f"{'Usuário' if m['role'] == 'user' else 'Biu'}: {m['content']}"
+    for m in st.session_state.mensagens[-6:-1]
+)
+resposta = perguntar(pergunta, historico)
