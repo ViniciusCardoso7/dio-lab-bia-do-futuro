@@ -12,8 +12,6 @@ import streamlit as st
 # ==================== CONFIGURAÇÃO ====================
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODELO = "llama3.2"
-# llama3.2 (3B) não tem modo de raciocínio: não use o parâmetro "think".
-# num_ctx maior evita que o prompt (regras + perfil + produtos) seja cortado.
 OPCOES_MODELO = {"num_ctx": 4096, "num_predict": 500, "temperature": 0.3}
 
 BASE_DIR = Path(__file__).resolve().parent.parent
