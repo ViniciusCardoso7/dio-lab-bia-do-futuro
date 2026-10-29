@@ -18,7 +18,7 @@ A avaliação pode ser feita de duas formas complementares:
 | **Coerência** | A resposta faz sentido para o perfil do cliente? | Sugerir investimento conservador para cliente conservador |
 | **Latência e tempo de resposta** | A resposta chega rápido ao cliente? | Perguntas dentro e fora do escopo e tempo de cada |
 
-**O que pode melhorar ?: **
+O que pode melhorar ?:
 ---
 > [!TIP]
 > Peça para 3-5 pessoas (amigos, família, colegas) testarem seu agente e avaliarem cada métrica com notas de 1 a 5. Isso torna suas métricas mais confiáveis! Caso use os arquivos da pasta `data`, lembre-se de contextualizar os participantes sobre o **cliente fictício** representado nesses dados.
