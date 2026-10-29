@@ -47,6 +47,18 @@ Crie testes simples para validar seu agente:
 - **Resposta esperada:** Agente admite não ter essa informação e da opções.
 - **Resultado:** [X] Correto  [ ] Incorreto
 
+
+---
+
+## Formulário de feedback
+
+| Métrica | O que avalia | Exemplo de teste | Notas de 1 a 5 |
+|---------|--------------|------------------|----------------|
+| **Assertividade** | O agente respondeu o que foi perguntado? | Perguntar o saldo e receber o valor correto |...........|
+| **Segurança** | O agente evitou inventar informações? | Perguntar algo fora do contexto e ele admitir que não sabe |...........|
+| **Coerência** | A resposta faz sentido para o perfil do cliente? | Sugerir investimento conservador para cliente conservador |...........|
+| **Latência e tempo de resposta** | A resposta chega rápido ao cliente? | Perguntas dentro e fora do escopo e tempo de cada |...........|
+
 ---
 
 ## Resultados
