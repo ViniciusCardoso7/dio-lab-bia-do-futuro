@@ -29,3 +29,7 @@ ollama serve
 # 3.Rodar app.
 streamlit run .\src\app.py
 ```
+
+## Evidencias de execução
+<img width="1917" height="913" alt="image" src="https://github.com/user-attachments/assets/7579a8ce-6710-4a90-b03b-196ff9d1153e" />
+
