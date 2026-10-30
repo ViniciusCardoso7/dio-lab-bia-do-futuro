@@ -44,7 +44,7 @@ Crie testes simples para validar seu agente:
 - **Resultado:** [X] Correto  [ ] Incorreto
 
 ### Teste 4: Informação inexistente
-- **Pergunta:** "Quanto rende o produto XYZ?"
+- **Pergunta:** "Quanto rende o produto CDI?"
 - **Resposta esperada:** Agente admite não ter essa informação e da opções.
 - **Resultado:** [X] Correto  [ ] Incorreto
 
