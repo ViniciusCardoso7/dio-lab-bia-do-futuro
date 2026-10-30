@@ -20,14 +20,16 @@ Todo código completo está no arquivo `app.py`.
 ## Como Rodar
 
 ```bash
-# 1.Instalar dependências.
-pip install streamlit pandas requests
+# 1.Encontrar pasta após clonar repositório no computador local.
+
+cd C:\Users\`Nome do seu computador`\Desktop\Biu\dio-lab-bia-do-futuro
+
 
 # 2.Garantir que o ollama está rodando.
 ollama serve
 
 # 3.Rodar app.
-streamlit run .\src\app.py
+python -m streamlit run .\src\app.py
 ```
 
 ## Evidencias de execução
