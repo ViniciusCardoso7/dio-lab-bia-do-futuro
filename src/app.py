@@ -688,3 +688,4 @@ if texto := st.chat_input("Digite aqui..."):
                     {"role": "assistant", "content": resposta}
                 )
                 st.session_state.hist_llm = limitar_historico(st.session_state.hist_llm)
+
