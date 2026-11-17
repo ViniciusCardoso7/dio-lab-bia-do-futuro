@@ -1,4 +1,4 @@
-# Código da Aplicação
+# Código de BIU — Assistente Financeiro
 
 import json
 import re
