@@ -1,13 +1,25 @@
 # Código de BIU — Assistente Financeiro
 
+import atexit
 import json
 import re
+import shutil
+import threading
+import time
 import unicodedata
+import uuid
 from datetime import date, datetime
 from pathlib import Path
 
 import requests
 import streamlit as st
+
+try:  # APIs do Streamlit usadas para detectar o fim da sessão
+    from streamlit.runtime import Runtime
+    from streamlit.runtime.scriptrunner import get_script_run_ctx
+except Exception:  # versão sem essas APIs: o vigia fica desativado
+    Runtime = None
+    get_script_run_ctx = None
 
 # ==================== CONFIGURAÇÃO ====================
 OLLAMA_URL = "http://localhost:11434/api/generate"
@@ -40,9 +52,94 @@ def brl(valor):
     return f"R$ {texto}"
 
 
+# ==================== SESSÃO: PERFIL TEMPORÁRIO ====================
+# O perfil cadastrado existe só enquanto a sessão durar. Ele é apagado:
+#   1) quando a sessão do navegador termina (aba fechada ou página recarregada):
+#      um vigia confere a cada poucos segundos se a sessão ainda está conectada;
+#   2) quando o servidor é desligado (atexit);
+#   3) na próxima vez que o servidor iniciar (sobras de queda ou encerramento forçado);
+#   4) quando o usuário clica em "Apagar meu perfil agora".
+INTERVALO_VIGIA = 2.0   # segundos entre verificações
+TOLERANCIA_VIGIA = 8.0  # segundos desconectado antes de apagar (evita apagar numa oscilação de rede)
+
+
+def _id_da_sessao_atual():
+    try:
+        ctx = get_script_run_ctx()
+        return ctx.session_id if ctx else None
+    except Exception:
+        return None
+
+
+def _vigiar_sessoes(ativas):
+    """Thread de fundo: apaga a pasta de toda sessão que deixou de estar conectada."""
+    inativas_desde = {}
+    while True:
+        time.sleep(INTERVALO_VIGIA)
+        try:
+            runtime = Runtime.instance()
+        except Exception:
+            continue
+        agora = time.time()
+        for pasta, sessao_id in list(ativas.items()):
+            if sessao_id is None:
+                continue
+            try:
+                conectada = runtime.is_active_session(sessao_id)
+            except Exception:
+                continue
+            if conectada:
+                inativas_desde.pop(pasta, None)
+                continue
+            desde = inativas_desde.setdefault(pasta, agora)
+            if agora - desde >= TOLERANCIA_VIGIA:
+                shutil.rmtree(pasta, ignore_errors=True)
+                ativas.pop(pasta, None)
+                inativas_desde.pop(pasta, None)
+
+
+@st.cache_resource
+def _registro_global():
+    """Executa uma vez por servidor. Retorna {pasta do perfil: id da sessão dona}."""
+    ativas = {}
+    if PERFIS_DIR.exists():
+        for pasta in PERFIS_DIR.iterdir():
+            if pasta.is_dir() and re.fullmatch(r".+-[0-9a-f]{8}", pasta.name):
+                shutil.rmtree(pasta, ignore_errors=True)
+
+    def limpar_tudo():
+        for pasta in list(ativas):
+            shutil.rmtree(pasta, ignore_errors=True)
+
+    atexit.register(limpar_tudo)
+    if Runtime is not None:
+        threading.Thread(target=_vigiar_sessoes, args=(ativas,), daemon=True).start()
+    return ativas
+
+
+class SessaoPerfil:
+    """Guarda a pasta do perfil desta sessão; ela é apagada quando a sessão termina."""
+
+    def __init__(self):
+        self.id = uuid.uuid4().hex[:8]
+        self.pasta = None
+        self._ativas = _registro_global()
+
+    def registrar(self, pasta):
+        self.pasta = pasta
+        self._ativas[pasta] = _id_da_sessao_atual()
+
+    def apagar(self):
+        pasta, self.pasta = self.pasta, None
+        if pasta is not None:
+            shutil.rmtree(pasta, ignore_errors=True)
+            self._ativas.pop(pasta, None)
+
+
 # ==================== PERFIL: ARQUIVO ====================
 def caminho_perfil(nome):
-    return PERFIS_DIR / slug(nome) / "perfil_investidor.json"
+    sessao = st.session_state.sessao
+    return PERFIS_DIR / f"{slug(nome)}-{sessao.id}" / "perfil_investidor.json"
 
 
 def carregar_perfil(nome):
@@ -61,6 +158,7 @@ def salvar_perfil(nome, perfil):
     caminho.parent.mkdir(parents=True, exist_ok=True)
     with open(caminho, "w", encoding="utf-8") as f:
         json.dump(perfil, f, ensure_ascii=False, indent=2)
+    st.session_state.sessao.registrar(caminho.parent)
     return caminho
 
 
@@ -310,7 +408,9 @@ def resumo_perfil(perfil):
     caminho = caminho_perfil(perfil["nome"]).relative_to(BASE_DIR)
     linhas += [
         "",
-        f"Salvei tudo em `{caminho}`. Agora é só perguntar: como posso te ajudar?",
+        f"Guardei o perfil temporariamente em `{caminho}`. Ele será **apagado quando você "
+        "encerrar a sessão** (fechar ou recarregar a página) ou se clicar em *Apagar meu "
+        "perfil agora*. Como posso te ajudar?",
     ]
     return "\n".join(linhas)
 
@@ -360,8 +460,32 @@ def calculos_metas(perfil):
     return linhas
 
 
+def bloco_produtos():
+    produtos = carregar_produtos()
+    if not isinstance(produtos, list) or not produtos:
+        return []
+    linhas = ["", "PRODUTOS DE REFERÊNCIA (dados da base, não são taxas atuais):"]
+    for p in produtos:
+        if not isinstance(p, dict):
+            continue
+        linhas.append(
+            f"- {p.get('nome')} | {p.get('categoria')} | risco {p.get('risco')} | "
+            f"{p.get('rentabilidade')} | aporte mínimo {p.get('aporte_minimo')} | "
+            f"indicado para: {p.get('indicado_para')}"
+        )
+    return linhas
+
+
 def montar_contexto(perfil, base=False):
     linhas = []
+    if perfil is None:
+        linhas.append(
+            "O usuário optou por NÃO cadastrar um perfil. Não há dados pessoais, renda, "
+            "patrimônio nem metas registrados. Responda de forma geral e educativa; para "
+            "personalizar, peça só os valores de que precisar (ex.: renda e despesas) e use "
+            "apenas o que o usuário informar na conversa."
+        )
+        return "\n".join(linhas + bloco_produtos())
     if base:
         linhas.append(
             "ATENÇÃO: o usuário NÃO cadastrou um perfil. Os dados abaixo são de um PERFIL BASE "
@@ -393,26 +517,17 @@ def montar_contexto(perfil, base=False):
         "Não há transações nem histórico de atendimento registrados para este cliente."
     )
 
-    produtos = carregar_produtos()
-    if produtos:
-        linhas.append("")
-        linhas.append("PRODUTOS DE REFERÊNCIA (dados da base, não são taxas atuais):")
-        for p in produtos:
-            linhas.append(
-                f"- {p.get('nome')} | {p.get('categoria')} | risco {p.get('risco')} | "
-                f"{p.get('rentabilidade')} | aporte mínimo {p.get('aporte_minimo')} | "
-                f"indicado para: {p.get('indicado_para')}"
-            )
+    linhas += bloco_produtos()
     return "\n".join(linhas)
 
 
 SYSTEM_PROMPT = """Você é o Biu, assistente de educação financeira para brasileiros.
 Responda SEMPRE em português do Brasil, mesmo que a pergunta venha em outro idioma.
 Regras:
-- o Biu sempre apaga as informações ao terminar a sessão.
-- o Biu não é consultor financeiro e não substitui orientação profissional.
+- O Biu não é consultor financeiro e não substitui orientação profissional.
+- O perfil cadastrado vale só durante a sessão e é apagado quando ela termina (ao fechar ou recarregar a página); sem cadastro, nada é salvo.
 - As linhas "CÁLCULO" do contexto já foram calculadas pela aplicação: use esses números como verdade e não refaça as contas.
-- Use somente os dados de João Silva ou os dados do CONTEXTO DO CLIENTE e os valores que o usuário informar. Nunca invente renda, saldos, taxas ou rentabilidades.
+- Use somente os dados do CONTEXTO DO CLIENTE e os valores que o usuário informar. Nunca invente renda, saldos, taxas ou rentabilidades.
 - Se faltar dado, diga o que falta e peça só o necessário.
 - Mostre contas de forma simples (ex.: R$ 15.000 - R$ 10.000 = R$ 5.000). Avise que a conta ignora rendimentos e inflação.
 - Priorize reserva de emergência (3 a 6 meses de despesas essenciais) antes de investir. Não prometa ganhos nem cite taxas atuais; para isso, oriente consultar fontes oficiais.
@@ -510,9 +625,13 @@ def limitar_historico(historico, limite=12):
 
 PERGUNTA_OFERTA = (
     "Quer cadastrar o seu perfil de investidor? São algumas perguntas rápidas e eu "
-    "personalizo as respostas com os seus dados. Se preferir **não**, uso o perfil base "
-    "de exemplo, só para demonstração, e nada seu é salvo. (sim/não)"
+    "personalizo as respostas com os seus dados. O perfil vale só durante esta sessão: "
+    "**é apagado quando você fechar ou recarregar a página**. Se preferir **não**, tudo "
+    "bem: você conversa normalmente comigo, usando um perfil base de exemplo (se existir) "
+    "ou com respostas gerais, e nada seu é salvo. (sim/não)"
 )
+
+DICA_CANCELAR = "\n\n*(Digite **cancelar** a qualquer momento para conversar sem cadastro.)*"
 
 
 def comecar_onboarding(msg_inicial):
@@ -522,8 +641,29 @@ def comecar_onboarding(msg_inicial):
     st.session_state.ob = novo_onboarding()
     st.session_state.hist_llm = []
     st.session_state.mensagens = [
-        {"role": "assistant", "content": msg_inicial + pergunta_fase(FASES[0])}
+        {
+            "role": "assistant",
+            "content": msg_inicial + pergunta_fase(FASES[0]) + DICA_CANCELAR,
+        }
     ]
+
+
+def cancelar_cadastro(nome):
+    """Sai do cadastro sem salvar nada; volta ao perfil salvo, se houver."""
+    st.session_state.ob = None
+    st.session_state.oferta = False
+    st.session_state.perfil_base = False
+    salvo = carregar_perfil(nome)
+    st.session_state.perfil = salvo
+    if salvo:
+        texto = "Cadastro cancelado. Mantive o seu perfil salvo. Como posso ajudar?"
+    else:
+        texto = (
+            "Cadastro cancelado. Vamos conversar sem perfil: respondo de forma geral e "
+            "nada seu é salvo. Se mudar de ideia, clique em **Cadastrar meu perfil** na "
+            "barra lateral. Como posso ajudar?"
+        )
+    st.session_state.mensagens.append({"role": "assistant", "content": texto})
 
 
 def iniciar_conversa(nome):
@@ -531,31 +671,23 @@ def iniciar_conversa(nome):
     st.session_state.hist_llm = []
     st.session_state.oferta = False
     st.session_state.perfil_base = False
-    perfil = carregar_perfil(nome)
-    if perfil is None:
-        st.session_state.perfil = None
-        st.session_state.ob = None
-        st.session_state.oferta = True
-        st.session_state.mensagens = [
-            {
-                "role": "assistant",
-                "content": f"Olá, {nome}! Sou o Biu, seu assistente de educação financeira. "
-                "Ainda não encontrei um perfil salvo para você. " + PERGUNTA_OFERTA,
-            }
-        ]
-    else:
-        st.session_state.perfil = perfil
-        st.session_state.ob = None
-        st.session_state.mensagens = [
-            {
-                "role": "assistant",
-                "content": f"Que bom te ver de novo, {nome}! Já tenho o seu perfil salvo. "
-                "Como posso te ajudar hoje?",
-            }
-        ]
+    st.session_state.sessao.apagar()  # trocou de nome: descarta o perfil anterior
+    st.session_state.perfil = None
+    st.session_state.ob = None
+    st.session_state.oferta = True
+    st.session_state.mensagens = [
+        {
+            "role": "assistant",
+            "content": f"Olá, {nome}! Sou o Biu, seu assistente de educação financeira. "
+            + PERGUNTA_OFERTA,
+        }
+    ]
 
 
 # ==================== INTERFACE (CHAT) ====================
+if "sessao" not in st.session_state:
+    st.session_state.sessao = SessaoPerfil()
+
 st.title("BIU — Assistente Financeiro")
 
 with st.sidebar:
@@ -569,17 +701,37 @@ if st.session_state.get("nome") != nome_in:
     iniciar_conversa(nome_in)
 
 with st.sidebar:
+    em_cadastro = st.session_state.ob is not None
+    sem_perfil = (
+        st.session_state.perfil is None and not em_cadastro and not st.session_state.oferta
+    )
     if st.session_state.perfil:
         titulo = "Perfil base (exemplo)" if st.session_state.perfil_base else "Meu perfil"
         with st.expander(titulo):
             st.json(st.session_state.perfil)
+    if st.session_state.perfil and not st.session_state.perfil_base:
+        st.caption("🔒 Seu perfil é apagado quando a sessão terminar.")
+        if st.button("Apagar meu perfil agora"):
+            st.session_state.sessao.apagar()
+            st.session_state.perfil = None
+            st.session_state.hist_llm = []
+            st.session_state.mensagens = [
+                {
+                    "role": "assistant",
+                    "content": "Pronto, apaguei o seu perfil. Seguimos sem perfil: respondo "
+                    "de forma geral e nada seu é salvo. Quando quiser, clique em "
+                    "**Cadastrar meu perfil**. Como posso ajudar?",
+                }
+            ]
+            st.rerun()
+    if not em_cadastro and not st.session_state.oferta:
         if st.button("Limpar conversa"):
             st.session_state.hist_llm = []
             st.session_state.mensagens = [
                 {"role": "assistant", "content": f"Conversa reiniciada, {nome_in}! Como posso ajudar?"}
             ]
             st.rerun()
-    if st.session_state.perfil_base or st.session_state.oferta:
+    if st.session_state.perfil_base or st.session_state.oferta or sem_perfil:
         rotulo = "Cadastrar meu perfil"
         aviso_inicio = "Vamos cadastrar o seu perfil de investidor.\n\n"
     else:
@@ -608,19 +760,20 @@ if texto := st.chat_input("Digite aqui..."):
             )
             st.rerun()
         if quer_cadastrar:
-            comecar_onboarding("Ótimo! Vou montar o seu perfil. Seus dados ficam salvos só neste computador, e você nunca precisa me passar senhas.\n\n")
+            comecar_onboarding("Ótimo! Vou montar o seu perfil. Seus dados ficam só nesta sessão (são apagados quando você fechar ou recarregar a página), e você nunca precisa me passar senhas.\n\n")
         else:
             base = carregar_perfil_base()
             if base is None:
+                st.session_state.oferta = False
                 st.session_state.mensagens.append(
                     {
                         "role": "assistant",
-                        "content": "Não encontrei o perfil base (data/perfil_investidor.json), "
-                        "então vamos cadastrar o seu mesmo.\n\n" + pergunta_fase(FASES[0]),
+                        "content": "Tudo bem! Vamos conversar sem perfil: respondo de forma "
+                        "geral, sem dados pessoais, e nada seu é salvo. Se quiser "
+                        "personalizar depois, clique em **Cadastrar meu perfil** na barra "
+                        "lateral. Como posso ajudar?",
                     }
                 )
-                st.session_state.oferta = False
-                st.session_state.ob = novo_onboarding()
             else:
                 st.session_state.oferta = False
                 st.session_state.perfil_base = True
@@ -638,6 +791,9 @@ if texto := st.chat_input("Digite aqui..."):
 
     # ---- Fase 1: montando o perfil ----
     elif st.session_state.ob is not None:
+        if norm(texto).strip(" .!") in ("cancelar", "sair"):
+            cancelar_cadastro(nome_in)
+            st.rerun()
         respostas, concluido = processar_resposta(st.session_state.ob, texto)
         for r in respostas:
             st.session_state.mensagens.append({"role": "assistant", "content": r})
@@ -688,4 +844,3 @@ if texto := st.chat_input("Digite aqui..."):
                     {"role": "assistant", "content": resposta}
                 )
                 st.session_state.hist_llm = limitar_historico(st.session_state.hist_llm)
-
