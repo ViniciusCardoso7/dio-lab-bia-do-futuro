@@ -619,8 +619,8 @@ def perguntar_stream(prompt_usuario: str, *args, **kwargs):
         if not candidatos or not isinstance(candidatos, list):
             yield "Desculpe, só posso ajudar com dúvidas sobre educação financeira e seus dados cadastrados."
             return
-            
-        primeiro = candidatos
+        
+        primeiro = next(iter(candidatos))
         partes = primeiro.get("content", {}).get("parts", [])
         texto = "".join(p.get("text", "") for p in partes).strip()
         
