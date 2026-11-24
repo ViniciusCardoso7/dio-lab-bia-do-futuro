@@ -605,11 +605,13 @@ def perguntar_stream(prompt_usuario: str, *args, **kwargs):
             }
         ],
         "generationConfig": {
-            "temperature": 0.2,
-            "maxOutputTokens": 500
+            "temperature": 0.3,
+            "maxOutputTokens": 2048,
+            "thinkingConfig": {
+            "thinkingBudget": 0
+            }
         }
-    }
-    
+            
     try:
         resposta = requests.post(url, headers=headers, json=payload, timeout=15)
         resposta.raise_for_status()
