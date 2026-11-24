@@ -538,7 +538,10 @@ Regras:
 
 # ==================== CHAMAR GEMINI ====================
 def perguntar_stream(prompt_usuario: str, *args, **kwargs):
-    url = "https://googleapis.com"
+    dominio = "generativelanguage" + ".googleapis.com"
+    caminho = "/v1beta/models/gemini-2.5-flash:generateContent"
+    url = "https://" + dominio + caminho
+
     headers = {
         "Content-Type": "application/json",
         "x-goog-api-key": st.secrets["GEMINI_API_KEY"]
