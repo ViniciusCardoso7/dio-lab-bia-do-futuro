@@ -566,21 +566,22 @@ def perguntar_stream(prompt_usuario: str, *args, **kwargs):
         ],
         "generationConfig": {
             "temperature": 0.2,
-            "maxOutputTokens": 400
+            "maxOutputTokens": 500
         }
     }
     
     try:
-        resposta = requests.post(url, headers=headers, json=payload, timeout=12)
+        resposta = requests.post(url, headers=headers, json=payload, timeout=15)
         resposta.raise_for_status()
         dados = resposta.json()
         
-        candidatos = dados.get("candidates", [])
-        if not candidatos:
+        candidatos = dados.get("candidates")
+        if not candidatos or not isinstance(candidatos, list):
             yield "Desculpe, só posso ajudar com dúvidas sobre educação financeira e seus dados cadastrados."
             return
             
-        partes = candidatos.get("content", {}).get("parts", [])
+        primeiro = candidatos
+        partes = primeiro.get("content", {}).get("parts", [])
         texto = "".join(p.get("text", "") for p in partes).strip()
         
         if not texto:
@@ -594,9 +595,8 @@ def perguntar_stream(prompt_usuario: str, *args, **kwargs):
     except requests.exceptions.Timeout:
         yield "O servidor demorou para responder. Tente enviar sua pergunta novamente."
     except Exception as e:
-        yield f"Não consegui processar sua pergunta agora. Tente novamente em instantes."
-
-
+        yield f"Erro técnico: {e}"
+        
 
 # ==================== ESTADO DA CONVERSA ====================
 def limitar_historico(historico, limite=12):
