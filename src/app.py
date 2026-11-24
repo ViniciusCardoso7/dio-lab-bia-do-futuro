@@ -1,4 +1,4 @@
-# Código de BIU — Assistente Financeiro
+# Código de BIU - Assistente Financeiro
 
 import atexit
 import json
@@ -31,7 +31,7 @@ PERFIS_DIR = DATA_DIR / "perfis"
 PRODUTOS_PATH = DATA_DIR / "produtos_financeiros.json"
 PERFIL_BASE_PATH = DATA_DIR / "perfil_investidor.json"  # perfil base (exemplo)
 
-st.set_page_config(page_title="Biu — Assistente Financeiro", page_icon="💰")
+st.set_page_config(page_title="BIU, o seu Assistente Financeiro", page_icon="💰")
 
 
 # ==================== UTILITÁRIOS ====================
