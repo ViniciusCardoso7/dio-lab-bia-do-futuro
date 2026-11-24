@@ -684,7 +684,7 @@ def iniciar_conversa(nome):
 if "sessao" not in st.session_state:
     st.session_state.sessao = SessaoPerfil()
 
-st.title("BIU — Assistente Financeiro")
+st.title("BIU, o seu Assistente Financeiro")
 
 with st.sidebar:
     nome_in = st.text_input("Seu nome:").strip()
