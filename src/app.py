@@ -539,27 +539,48 @@ Regras:
 
 # ==================== CHAMAR GEMINI ====================
 @st.cache_data(ttl=3600)
-def obter_modelo_gemini(api_key: str) -> str:
+def descobrir_modelo_ativo(api_key: str) -> str:
     dominio = "generativelanguage" + ".googleapis.com"
-    url_lista = f"https://{dominio}/v1beta/models"
-    resp = requests.get(url_lista, headers={"x-goog-api-key": api_key}, timeout=10)
-    resp.raise_for_status()
-    for m in resp.json().get("models", []):
-        nome = m.get("name", "")
-        metodos = m.get("supportedGenerationMethods", [])
-        if "generateContent" in metodos and "flash" in nome.lower():
-            return nome.replace("models/", "")
+    headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": api_key
+    }
+    
+    # 1. Busca todos os modelos disponíveis na sua conta
+    candidatos = []
+    try:
+        resp = requests.get(f"https://{dominio}/v1beta/models", headers=headers, timeout=10)
+        if resp.ok:
+            for m in resp.json().get("models", []):
+                nome = m.get("name", "").replace("models/", "")
+                metodos = m.get("supportedGenerationMethods", [])
+                if "generateContent" in metodos and "gemini" in nome.lower():
+                    # Ignora modelos de imagem, áudio ou TTS
+                    if not any(x in nome.lower() for x in ["image", "audio", "tts", "vision", "embedding"]):
+                        candidatos.append(nome)
+    except Exception:
+        pass
+
+    # Prioriza modelos 'flash' mais recentes no topo da fila
+    candidatos.sort(key=lambda x: ("flash" not in x, x), reverse=False)
+    
+    # 2. Testa qual modelo realmente aceita geração de texto na prática
+    teste_payload = {"contents": [{"parts": [{"text": "oi"}]}]}
+    for nome in candidatos:
+        url_teste = f"https://{dominio}/v1beta/models/{nome}:generateContent"
+        try:
+            r = requests.post(url_teste, headers=headers, json=teste_payload, timeout=8)
+            if r.status_code == 200:
+                return nome
+        except Exception:
+            continue
+            
     return "gemini-flash-latest"
 
 def perguntar_stream(prompt_usuario: str, *args, **kwargs):
     dominio = "generativelanguage" + ".googleapis.com"
     api_key = st.secrets["GEMINI_API_KEY"]
-    
-    try:
-        modelo = obter_modelo_gemini(api_key)
-    except Exception:
-        modelo = "gemini-flash-latest"
-        
+    modelo = descobrir_modelo_ativo(api_key)
     url = f"https://{dominio}/v1beta/models/{modelo}:generateContent"
     
     headers = {
@@ -614,7 +635,7 @@ def perguntar_stream(prompt_usuario: str, *args, **kwargs):
     except requests.exceptions.Timeout:
         yield "O servidor demorou para responder. Tente enviar sua pergunta novamente."
     except Exception as e:
-        yield f"Erro técnico: {e}"
+        yield f"Erro técnico ({modelo}): {e}"
 
 # ==================== ESTADO DA CONVERSA ====================
 def limitar_historico(historico, limite=12):
