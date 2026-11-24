@@ -541,15 +541,23 @@ Regras:
 def perguntar_stream(prompt_usuario: str, *args, **kwargs):
     dominio = "generativelanguage" + ".googleapis.com"
     api_key = st.secrets["GEMINI_API_KEY"]
+    url = f"https://{dominio}/v1beta/models/gemini-2.5-flash-lite:generateContent"
     
     headers = {
         "Content-Type": "application/json",
         "x-goog-api-key": api_key
     }
     
+    instrucao = (
+        SYSTEM_PROMPT + 
+        "\nIMPORTANTE: Se a pergunta não for sobre finanças pessoais ou pedir taxas/rentabilidades "
+        "atuais não informadas no contexto, responda imediatamente em no máximo 2 frases curtas "
+        "explicando que você só trata de finanças pessoais ou que não possui taxas atualizadas."
+    )
+    
     payload = {
         "systemInstruction": {
-            "parts": [{"text": SYSTEM_PROMPT}]
+            "parts": [{"text": instrucao}]
         },
         "contents": [
             {
@@ -558,29 +566,36 @@ def perguntar_stream(prompt_usuario: str, *args, **kwargs):
         ],
         "generationConfig": {
             "temperature": 0.2,
-            "maxOutputTokens": 800
+            "maxOutputTokens": 400
         }
     }
     
-    modelos = ["gemini-2.5-flash-lite", "gemini-3-flash-preview", "gemini-flash-latest", "gemini-2.0-flash"]
-    
-    for modelo in modelos:
-        url = f"https://{dominio}/v1beta/models/{modelo}:generateContent"
-        try:
-            resposta = requests.post(url, headers=headers, json=payload, timeout=30)
-            if resposta.status_code == 404:
-                continue
-            resposta.raise_for_status()
-            dados = resposta.json()
-            texto = dados["candidates"]["content"]["parts"]["text"]
-            
-            for palavra in texto.split(" "):
-                yield palavra + " "
-                time.sleep(0.02)
+    try:
+        resposta = requests.post(url, headers=headers, json=payload, timeout=12)
+        resposta.raise_for_status()
+        dados = resposta.json()
+        
+        candidatos = dados.get("candidates", [])
+        if not candidatos:
+            yield "Desculpe, só posso ajudar com dúvidas sobre educação financeira e seus dados cadastrados."
             return
-        except Exception as e:
-            if modelo == modelos[-1]:
-                yield f"Erro ao consultar o Gemini: {e}"
+            
+        partes = candidatos.get("content", {}).get("parts", [])
+        texto = "".join(p.get("text", "") for p in partes).strip()
+        
+        if not texto:
+            yield "Desculpe, só posso ajudar com dúvidas sobre educação financeira e seus dados cadastrados."
+            return
+            
+        for palavra in texto.split(" "):
+            yield palavra + " "
+            time.sleep(0.015)
+            
+    except requests.exceptions.Timeout:
+        yield "O servidor demorou para responder. Tente enviar sua pergunta novamente."
+    except Exception as e:
+        yield f"Não consegui processar sua pergunta agora. Tente novamente em instantes."
+
 
 
 # ==================== ESTADO DA CONVERSA ====================
