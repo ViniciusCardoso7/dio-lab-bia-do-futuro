@@ -582,59 +582,49 @@ def perguntar_stream(prompt_usuario: str, *args, **kwargs):
     api_key = st.secrets["GEMINI_API_KEY"]
     modelo = descobrir_modelo_ativo(api_key)
     url = f"https://{dominio}/v1beta/models/{modelo}:generateContent"
-    
+
     headers = {
         "Content-Type": "application/json",
         "x-goog-api-key": api_key
     }
-    
-    instrucao = (
-        SYSTEM_PROMPT + 
-        "\nIMPORTANTE: Se a pergunta não for sobre finanças pessoais ou pedir taxas/rentabilidades "
-        "atuais não informadas no contexto, responda imediatamente em no máximo 2 frases curtas "
-        "explicando que você só trata de finanças pessoais ou que não possui taxas atualizadas."
-    )
-         headers = {
-        "Content-Type": "application/json",
-        "x-goog-api-key": api_key
-    }
 
-        payload = dict(
-            systemInstruction=dict(parts=[dict(text=SYSTEM_PROMPT)]),
-            contents=[dict(parts=[dict(text=str(prompt_usuario))])],
-            generationConfig=dict(
-                temperature=0.3,
-                maxOutputTokens=2048,
-                thinkingConfig=dict(thinkingBudget=0)
-            )
+    payload = dict(
+        systemInstruction=dict(parts=[dict(text=SYSTEM_PROMPT)]),
+        contents=[dict(parts=[dict(text=str(prompt_usuario))])],
+        generationConfig=dict(
+            temperature=0.3,
+            maxOutputTokens=2048,
+            thinkingConfig=dict(thinkingBudget=0)
         )
+    )
 
     try:
-        resposta = requests.post(url, headers=headers, json=payload, timeout=15)
+        resposta = requests.post(url, headers=headers, json=payload, timeout=20)
         resposta.raise_for_status()
         dados = resposta.json()
-        
+
         candidatos = dados.get("candidates")
         if not candidatos or not isinstance(candidatos, list):
             yield "Desculpe, só posso ajudar com dúvidas sobre educação financeira e seus dados cadastrados."
             return
-        
+
         primeiro = next(iter(candidatos))
         partes = primeiro.get("content", {}).get("parts", [])
         texto = "".join(p.get("text", "") for p in partes).strip()
-        
+
         if not texto:
             yield "Desculpe, só posso ajudar com dúvidas sobre educação financeira e seus dados cadastrados."
             return
-            
+
         for palavra in texto.split(" "):
             yield palavra + " "
             time.sleep(0.015)
-            
+
     except requests.exceptions.Timeout:
         yield "O servidor demorou para responder. Tente enviar sua pergunta novamente."
     except Exception as e:
         yield f"Erro técnico ({modelo}): {e}"
+
 
 # ==================== ESTADO DA CONVERSA ====================
 def limitar_historico(historico, limite=12):
