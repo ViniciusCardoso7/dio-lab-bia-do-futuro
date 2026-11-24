@@ -538,10 +538,29 @@ Regras:
 
 
 # ==================== CHAMAR GEMINI ====================
+@st.cache_data(ttl=3600)
+def obter_modelo_gemini(api_key: str) -> str:
+    dominio = "generativelanguage" + ".googleapis.com"
+    url_lista = f"https://{dominio}/v1beta/models"
+    resp = requests.get(url_lista, headers={"x-goog-api-key": api_key}, timeout=10)
+    resp.raise_for_status()
+    for m in resp.json().get("models", []):
+        nome = m.get("name", "")
+        metodos = m.get("supportedGenerationMethods", [])
+        if "generateContent" in metodos and "flash" in nome.lower():
+            return nome.replace("models/", "")
+    return "gemini-flash-latest"
+
 def perguntar_stream(prompt_usuario: str, *args, **kwargs):
     dominio = "generativelanguage" + ".googleapis.com"
     api_key = st.secrets["GEMINI_API_KEY"]
-    url = f"https://{dominio}/v1beta/models/gemini-2.5-flash-lite:generateContent"
+    
+    try:
+        modelo = obter_modelo_gemini(api_key)
+    except Exception:
+        modelo = "gemini-flash-latest"
+        
+    url = f"https://{dominio}/v1beta/models/{modelo}:generateContent"
     
     headers = {
         "Content-Type": "application/json",
@@ -596,7 +615,6 @@ def perguntar_stream(prompt_usuario: str, *args, **kwargs):
         yield "O servidor demorou para responder. Tente enviar sua pergunta novamente."
     except Exception as e:
         yield f"Erro técnico: {e}"
-        
 
 # ==================== ESTADO DA CONVERSA ====================
 def limitar_historico(historico, limite=12):
