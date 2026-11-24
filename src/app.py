@@ -538,6 +538,7 @@ Regras:
 
 # ==================== CHAMAR GEMINI ====================
 def perguntar_stream(prompt_usuario: str, *args, **kwargs):
+    url = "https://googleapis.com"
     headers = {
         "Content-Type": "application/json",
         "x-goog-api-key": st.secrets["GEMINI_API_KEY"]
@@ -557,7 +558,7 @@ def perguntar_stream(prompt_usuario: str, *args, **kwargs):
     
     try:
         resposta = requests.post(
-            GEMINI_URL,
+            url,
             headers=headers,
             json=payload,
             timeout=30
@@ -566,7 +567,6 @@ def perguntar_stream(prompt_usuario: str, *args, **kwargs):
         dados = resposta.json()
         texto = dados["candidates"][0]["content"]["parts"][0]["text"]
         
-        # Envia o texto palavra por palavra para manter o efeito de digitação do st.write_stream
         for palavra in texto.split(" "):
             yield palavra + " "
             time.sleep(0.02)
