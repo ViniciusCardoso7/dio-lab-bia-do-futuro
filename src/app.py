@@ -537,35 +537,42 @@ Regras:
 
 
 # ==================== CHAMAR GEMINI ====================
-def consultar_ia(prompt_usuario: str) -> str:
-    params = {"key": st.secrets["GEMINI_API_KEY"]}
-    headers = {"Content-Type": "application/json"}
+def perguntar_stream(prompt_usuario: str, *args, **kwargs):
+    headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": st.secrets["GEMINI_API_KEY"]
+    }
     
     payload = {
         "contents": [
             {
-                "parts": [{"text": prompt_usuario}]
+                "parts": [{"text": str(prompt_usuario)}]
             }
         ],
         "generationConfig": {
             "temperature": 0.3,
-            "maxOutputTokens": 500
+            "maxOutputTokens": 800
         }
     }
     
     try:
         resposta = requests.post(
-            GEMINI_URL, 
-            params=params, 
-            headers=headers, 
-            json=payload, 
+            GEMINI_URL,
+            headers=headers,
+            json=payload,
             timeout=30
         )
         resposta.raise_for_status()
         dados = resposta.json()
-        return dados["candidates"][0]["content"]["parts"][0]["text"]
+        texto = dados["candidates"][0]["content"]["parts"][0]["text"]
+        
+        # Envia o texto palavra por palavra para manter o efeito de digitação do st.write_stream
+        for palavra in texto.split(" "):
+            yield palavra + " "
+            time.sleep(0.02)
+            
     except Exception as e:
-        return f"Erro ao consultar o Gemini: {e}"
+        yield f"Erro ao consultar o Gemini: {e}"
 
 # ==================== ESTADO DA CONVERSA ====================
 def limitar_historico(historico, limite=12):
