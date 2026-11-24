@@ -23,7 +23,7 @@ except Exception:  # versão sem essas APIs: o vigia fica desativado
 
 # ==================== CONFIGURAÇÃO ====================
 MODELO = "gemini-2.5-flash"
-GEMINI_URL = f"https://googleapis.com{MODELO}:generateContent"
+GEMINI_URL = "https://googleapis.com" + MODELO + ":generateContent"
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
