@@ -539,12 +539,11 @@ Regras:
 # ==================== CHAMAR GEMINI ====================
 def perguntar_stream(prompt_usuario: str, *args, **kwargs):
     dominio = "generativelanguage" + ".googleapis.com"
-    caminho = "/v1beta/models/gemini-2.5-flash:generateContent"
-    url = "https://" + dominio + caminho
-
+    api_key = st.secrets["GEMINI_API_KEY"]
+    
     headers = {
         "Content-Type": "application/json",
-        "x-goog-api-key": st.secrets["GEMINI_API_KEY"]
+        "x-goog-api-key": api_key
     }
     
     payload = {
@@ -559,23 +558,25 @@ def perguntar_stream(prompt_usuario: str, *args, **kwargs):
         }
     }
     
-    try:
-        resposta = requests.post(
-            url,
-            headers=headers,
-            json=payload,
-            timeout=30
-        )
-        resposta.raise_for_status()
-        dados = resposta.json()
-        texto = dados["candidates"][0]["content"]["parts"][0]["text"]
-        
-        for palavra in texto.split(" "):
-            yield palavra + " "
-            time.sleep(0.02)
+    modelos = ["gemini-2.5-flash-lite", "gemini-3-flash-preview", "gemini-flash-latest", "gemini-2.0-flash"]
+    
+    for modelo in modelos:
+        url = f"https://{dominio}/v1beta/models/{modelo}:generateContent"
+        try:
+            resposta = requests.post(url, headers=headers, json=payload, timeout=30)
+            if resposta.status_code == 404:
+                continue
+            resposta.raise_for_status()
+            dados = resposta.json()
+            texto = dados["candidates"][0]["content"]["parts"][0]["text"]
             
-    except Exception as e:
-        yield f"Erro ao consultar o Gemini: {e}"
+            for palavra in texto.split(" "):
+                yield palavra + " "
+                time.sleep(0.02)
+            return
+        except Exception as e:
+            if modelo == modelos[-1]:
+                yield f"Erro ao consultar o Gemini: {e}"
 
 # ==================== ESTADO DA CONVERSA ====================
 def limitar_historico(historico, limite=12):
