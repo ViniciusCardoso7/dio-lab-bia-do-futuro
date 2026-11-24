@@ -22,9 +22,8 @@ except Exception:  # versão sem essas APIs: o vigia fica desativado
     get_script_run_ctx = None
 
 # ==================== CONFIGURAÇÃO ====================
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODELO = "llama3.2"
-OPCOES_MODELO = {"num_ctx": 4096, "num_predict": 500, "temperature": 0.3}
+MODELO = "gemini-2.5-flash"
+GEMINI_URL = f"https://googleapis.com{MODELO}:generateContent"
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
@@ -537,70 +536,36 @@ Regras:
 """
 
 
-# ==================== CHAMAR OLLAMA ====================
-def perguntar_stream(msg, perfil, historico="", base=False):
-    prompt = f"""{SYSTEM_PROMPT}
-Data de hoje: {date.today().strftime('%d/%m/%Y')}
-
-CONTEXTO DO CLIENTE:
-{montar_contexto(perfil, base)}
-
-CONVERSA ATÉ AGORA:
-{historico}
-
-Pergunta: {msg}"""
-
+# ==================== CHAMAR GEMINI ====================
+def consultar_ia(prompt_usuario: str) -> str:
+    params = {"key": st.secrets["GEMINI_API_KEY"]}
+    headers = {"Content-Type": "application/json"}
+    
     payload = {
-        "model": MODELO,
-        "prompt": prompt,
-        "stream": True,
-        "keep_alive": "30m",
-        "options": OPCOES_MODELO,
+        "contents": [
+            {
+                "parts": [{"text": prompt_usuario}]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.3,
+            "maxOutputTokens": 500
+        }
     }
-
+    
     try:
-        with requests.post(
-            OLLAMA_URL,
-            json=payload,
-            stream=True,
-            timeout=(10, 600),
-        ) as r:
-            if r.status_code == 404:
-                raise RuntimeError(
-                    f"O modelo '{MODELO}' não está instalado. "
-                    f"Execute no terminal: ollama pull {MODELO}"
-                )
-
-            if r.status_code != 200:
-                raise RuntimeError(
-                    f"O Ollama retornou {r.status_code}: {r.text[:300]}"
-                )
-
-            for linha in r.iter_lines():
-                if not linha:
-                    continue
-
-                try:
-                    dados = json.loads(linha)
-                except json.JSONDecodeError:
-                    continue
-
-                if dados.get("error"):
-                    raise RuntimeError(dados["error"])
-
-                if dados.get("response"):
-                    yield dados["response"]
-
-                if dados.get("done"):
-                    break
-
-    except requests.exceptions.ConnectionError:
-        yield (
-            "Não consegui conectar ao Ollama. Verifique se ele está em execução "
-            "com o comando `ollama serve` e se o modelo está instalado."
+        resposta = requests.post(
+            GEMINI_URL, 
+            params=params, 
+            headers=headers, 
+            json=payload, 
+            timeout=30
         )
-    except Exception as erro:
-        yield f"Erro ao consultar o modelo: {erro}"
+        resposta.raise_for_status()
+        dados = resposta.json()
+        return dados["candidates"][0]["content"]["parts"][0]["text"]
+    except Exception as e:
+        return f"Erro ao consultar o Gemini: {e}"
 
 # ==================== ESTADO DA CONVERSA ====================
 def limitar_historico(historico, limite=12):
