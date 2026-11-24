@@ -548,13 +548,16 @@ def perguntar_stream(prompt_usuario: str, *args, **kwargs):
     }
     
     payload = {
+        "systemInstruction": {
+            "parts": [{"text": SYSTEM_PROMPT}]
+        },
         "contents": [
             {
                 "parts": [{"text": str(prompt_usuario)}]
             }
         ],
         "generationConfig": {
-            "temperature": 0.3,
+            "temperature": 0.2,
             "maxOutputTokens": 800
         }
     }
@@ -569,7 +572,7 @@ def perguntar_stream(prompt_usuario: str, *args, **kwargs):
                 continue
             resposta.raise_for_status()
             dados = resposta.json()
-            texto = dados["candidates"][0]["content"]["parts"][0]["text"]
+            texto = dados["candidates"]["content"]["parts"]["text"]
             
             for palavra in texto.split(" "):
                 yield palavra + " "
@@ -578,6 +581,7 @@ def perguntar_stream(prompt_usuario: str, *args, **kwargs):
         except Exception as e:
             if modelo == modelos[-1]:
                 yield f"Erro ao consultar o Gemini: {e}"
+
 
 # ==================== ESTADO DA CONVERSA ====================
 def limitar_historico(historico, limite=12):
