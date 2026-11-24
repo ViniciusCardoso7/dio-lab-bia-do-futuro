@@ -594,15 +594,20 @@ def perguntar_stream(prompt_usuario: str, *args, **kwargs):
         "atuais não informadas no contexto, responda imediatamente em no máximo 2 frases curtas "
         "explicando que você só trata de finanças pessoais ou que não possui taxas atualizadas."
     )
-      payload = dict(
-        systemInstruction=dict(parts=[dict(text=SYSTEM_PROMPT)]),
-        contents=[dict(parts=[dict(text=str(prompt_usuario))])],
-        generationConfig=dict(
-            temperature=0.3,
-            maxOutputTokens=2048,
-            thinkingConfig=dict(thinkingBudget=0)
+         headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": api_key
+    }
+
+        payload = dict(
+            systemInstruction=dict(parts=[dict(text=SYSTEM_PROMPT)]),
+            contents=[dict(parts=[dict(text=str(prompt_usuario))])],
+            generationConfig=dict(
+                temperature=0.3,
+                maxOutputTokens=2048,
+                thinkingConfig=dict(thinkingBudget=0)
+            )
         )
-    )
 
     try:
         resposta = requests.post(url, headers=headers, json=payload, timeout=15)
