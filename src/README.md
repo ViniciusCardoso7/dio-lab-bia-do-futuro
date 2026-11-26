@@ -1,37 +1,17 @@
 # Passo a passo de Execução
-## Settup do Ollama (5 minutos)
+## Via Streamlit
 
-1. Instalar o Ollama (ollama.com)
+1. Clicar no link via Streamlit abaixo:
 
-2. Baixar um modelo leve
-```bash
-ollama pull llama3.2
-```
-3.Testar se Funciona
-```bash
-ollama run llama3.2 "Olá!"
-```
+https://bootcamp-data-dio-vinicius-cardoso-biu.streamlit.app/
 
-## Código Completo
+## Como Rodar?
+ 
+ Basta clicar no link, simples, rápido e fácil! :)
 
-Todo código completo está no arquivo `app.py`.
-
-
-## Como Rodar
-
-```bash
-# 1.Encontrar pasta após clonar repositório no computador local.
-
-cd C:\Users\`Nome do seu computador`\Desktop\Biu\dio-lab-bia-do-futuro
-
-
-# 2.Garantir que o ollama está rodando.
-ollama serve
-
-# 3.Rodar app.
-python -m streamlit run .\src\app.py
-```
 
 ## Evidencias de execução
-<img width="1917" height="913" alt="image" src="https://github.com/user-attachments/assets/7579a8ce-6710-4a90-b03b-196ff9d1153e" />
+<img width="1917" height="867" alt="image" src="https://github.com/user-attachments/assets/355c9927-3db3-4882-ba27-c4af33249bb9" />
+
+
 
