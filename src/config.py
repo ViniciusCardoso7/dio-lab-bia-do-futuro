@@ -1,3 +1,3 @@
-#==================~CONFIGURAÇÃO========================
-OLLAMA_URL = "http://localhost:11434"
-MODELO ="llama3.2"
+# ==================== CONFIGURAÇÃO ====================
+MODELO = "gemini-2.5-flash"
+GEMINI_URL = "https://googleapis.com" + MODELO + ":generateContent"
